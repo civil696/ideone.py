@@ -47,14 +47,22 @@ def printErrorAndDie(error):
         msg = ERROR_MESSAGES[error]
     print >> stderr, msg
     exit(1)
- 
+
+#callback for --langs-list option
+def showLListAndExit(option, optstr, value, parser):
+    print "supported programming languages:"
+    for lang in LANGS_CODES.keys():
+        print lang
+    exit(0)
+
+
 def getErrorCode(resp):
     return resp['item']['value']['item'][0]['value'] 
  
 def isError(resp):
     return resp['item'][0] == 'error'
- 
- 
+
+
 #ideone wsdl client
 IDEONE = WSDL.Proxy(IDEONE_SERVICE)
  
@@ -65,12 +73,12 @@ def paste(file):
                                        source,
                                        LANGS_CODES.get(LANG, "default"),
                                        '', False, False)
-    res = ''
     if isError(response):
         printErrorAndDie(getErrorCode(response))
     else:
         return "http://ideone.com/%s" % (response['item'][1]['value'])
- 
+
+
 USAGE = """
   cat somefile | %prog [OPTIONS]
   %prog [OPTIONS] file1 file2 file3 """
@@ -93,6 +101,9 @@ parser.add_option("-p", "--password", dest="PASS", metavar="PASSWD",
 parser.add_option("-l", "--language", dest="LANG",
                   default="text",
                   help="treat code as having language LANG (for syntax highlighting etc)")
+parser.add_option("-s", "--langs-list", action="callback",
+                  callback=showLListAndExit,
+                  help="show a list of supported programming languages")
 #parser.set_defaults(USER="test", PASS="test", LANG="text)
  
 options, args = parser.parse_args()
