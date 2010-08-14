@@ -3,20 +3,16 @@
 ideone.com paster
 """
  
+import sys
 from sys import stdin, stderr
 from SOAPpy import WSDL
-import sys, getopt
- 
+from optparse import OptionParser
  
 #settings
 IDEONE_SERVICE = 'http://ideone.com/api/1/service.wsdl'
-USER = 'test'
-PASS = 'test'
-LANG = 'text'
- 
  
 #language code tables
-LANGS_CODE = {
+LANGS_CODES = {
         'ada'       : 7,
         'assembler' : 13,
         'awk'       : 104,
@@ -37,12 +33,6 @@ LANGS_CODE = {
         'text'      : 62,
         'default'   : 62
 }
- 
-def getLangCode(lang):
-    if LANGS_CODE.has_key(lang):
-        return LANGS_CODE[lang]
-    return LANGS_CODE['default']
- 
  
 # error handling
 ERROR_MESSAGES = {
@@ -65,80 +55,54 @@ def isError(resp):
     return resp['item'][0] == 'error'
  
  
-#options handling
-USAGE = """
-cat somefile | ideone.py [KEY]...
-or
-ideone.py file1 file2 file3
- 
-    KEYS:
-    -h      - this usage
-    -u 'user' - set ideone's username to 'user'
-    -p 'pass' - set ideone's password to 'pass'
-    -l 'lang' - set code's language to 'lang'
-"""
- 
-def usage():
-    print USAGE
-    exit(0)
- 
-def changeUser(newUser):
-    global USER
-    USER = newUser
- 
-def changePass(newPass):
-    global PASS
-    PASS = newPass
- 
-def changeLang(newLang):
-    global LANG
-    LANG = newLang
- 
-CHANGE_ARGS = {
-        '-u': changeUser,
-        '-p': changePass,
-        '-l': changeLang
-}
- 
-FLAG_ARGS = {
-        '-h': usage
-}
- 
-def parseArgs(args):
-    copts = CHANGE_ARGS.keys()
-    fopts = FLAG_ARGS.keys()
-    return getopt.getopt(args,
-            ''.join(map(lambda arg: arg.replace('-', '') + ':', copts)) +
-            ''.join(map(lambda arg: arg.replace('-', ''), fopts)))
- 
-def applyOpts(optlist):
-    for opt in optlist:
-        if opt[1] != '':
-            CHANGE_ARGS[opt[0]](opt[1])
-        else:
-            FLAG_ARGS[opt[0]]()
- 
 #ideone wsdl client
 IDEONE = WSDL.Proxy(IDEONE_SERVICE)
  
 def paste(file):
     source = file.read()
-    response = IDEONE.createSubmission(USER, PASS, source, getLangCode(LANG), '', False, False)
+    response = IDEONE.createSubmission(USER,
+                                       PASS,
+                                       source,
+                                       LANGS_CODES.get(LANG, "default"),
+                                       '', False, False)
     res = ''
     if isError(response):
         printErrorAndDie(getErrorCode(response))
     else:
         return "http://ideone.com/%s" % (response['item'][1]['value'])
  
+USAGE = """
+  cat somefile | %prog [OPTIONS]
+  %prog [OPTIONS] file1 file2 file3 """
  
-optlist, filelist = parseArgs(sys.argv[1:])
-applyOpts(optlist)
+DESCRIPTION = """
+This is a paster script for Ideone.
+ 
+"Ideone is a... pastebin. But a pastebin like no other on the Internet. More
+accurate expression would be online mini IDE and debugging tool."
+-- http://ideone.com/about
+"""
+ 
+parser = OptionParser(usage=USAGE, description=DESCRIPTION)
+parser.add_option("-u", "--user", dest="USER",
+                  default="test",
+                  help="use username USER when pasting")
+parser.add_option("-p", "--password", dest="PASS", metavar="PASSWD",
+                  default="test",
+                  help="use password PASSWD when pasting")
+parser.add_option("-l", "--language", dest="LANG",
+                  default="text",
+                  help="treat code as having language LANG (for syntax highlighting etc)")
+#parser.set_defaults(USER="test", PASS="test", LANG="text)
+ 
+options, args = parser.parse_args()
+globals().update(options.__dict__)
+filelist = args
  
 if filelist == []:
     print paste(stdin)
 else:
     for filename in filelist:
         file = open(filename, "r")
-        print paste(file)
+        print "%s:\t%s" % (filename, paste(file))
         file.close()
- 
